@@ -107,7 +107,7 @@ const LinearIntegration = (function() {
     }
 
     // Create an issue in Linear
-    async function createIssue(title, description, priority = 2) {
+    async function createIssue(title, description, options = {}) {
         const query = `
             mutation($input: IssueCreateInput!) {
                 issueCreate(input: $input) {
@@ -124,10 +124,18 @@ const LinearIntegration = (function() {
         const input = {
             teamId: settings.teamId,
             title: title,
-            description: description,
-            priority: priority
+            description: description
         };
 
+        if (options.priority) {
+            input.priority = options.priority;
+        }
+        if (options.assigneeId) {
+            input.assigneeId = options.assigneeId;
+        }
+        if (options.stateId) {
+            input.stateId = options.stateId;
+        }
         if (settings.projectId) {
             input.projectId = settings.projectId;
         }
@@ -139,6 +147,46 @@ const LinearIntegration = (function() {
         }
 
         return data.issueCreate.issue;
+    }
+
+    // Fetch team members
+    async function fetchTeamMembers(teamId) {
+        const query = `
+            query($teamId: String!) {
+                team(id: $teamId) {
+                    members {
+                        nodes {
+                            id
+                            name
+                            displayName
+                        }
+                    }
+                }
+            }
+        `;
+
+        const data = await graphqlRequest(query, { teamId });
+        return data.team.members.nodes;
+    }
+
+    // Fetch workflow states for a team
+    async function fetchWorkflowStates(teamId) {
+        const query = `
+            query($teamId: String!) {
+                team(id: $teamId) {
+                    states {
+                        nodes {
+                            id
+                            name
+                            type
+                        }
+                    }
+                }
+            }
+        `;
+
+        const data = await graphqlRequest(query, { teamId });
+        return data.team.states.nodes;
     }
 
     // Check if connected
@@ -166,6 +214,8 @@ const LinearIntegration = (function() {
         clearSettings,
         testConnection,
         fetchProjects,
+        fetchTeamMembers,
+        fetchWorkflowStates,
         createIssue,
         isConnected,
         getSettings,
@@ -373,17 +423,50 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize display
     updateConnectionDisplay();
 
+    // Create Issue Modal elements
+    const createIssueModal = document.getElementById('createIssueModal');
+    const closeCreateIssueBtn = document.getElementById('closeCreateIssue');
+    const cancelCreateIssueBtn = document.getElementById('cancelCreateIssue');
+    const confirmCreateIssueBtn = document.getElementById('confirmCreateIssue');
+    const issueTitleInput = document.getElementById('issueTitle');
+    const issuePrioritySelect = document.getElementById('issuePriority');
+    const issueAssigneeSelect = document.getElementById('issueAssignee');
+    const issueStatusSelect = document.getElementById('issueStatus');
+    const createIssueStatus = document.getElementById('createIssueStatus');
+
+    // Close create issue modal
+    function closeCreateIssueModal() {
+        createIssueModal.classList.remove('show');
+        createIssueStatus.textContent = '';
+        createIssueStatus.className = 'linear-status';
+    }
+
+    if (closeCreateIssueBtn) {
+        closeCreateIssueBtn.addEventListener('click', closeCreateIssueModal);
+    }
+    if (cancelCreateIssueBtn) {
+        cancelCreateIssueBtn.addEventListener('click', closeCreateIssueModal);
+    }
+    if (createIssueModal) {
+        createIssueModal.addEventListener('click', function(e) {
+            if (e.target === createIssueModal) {
+                closeCreateIssueModal();
+            }
+        });
+    }
+
     // Handle single Linear issue creation button
     const createLinearBtn = document.getElementById('createLinearIssue');
     if (createLinearBtn) {
         createLinearBtn.addEventListener('click', async function() {
+            // Check if connected to Linear
             if (!LinearIntegration.isConnected()) {
                 modal.classList.add('show');
                 return;
             }
 
-            // Get the full markdown content
-            if (typeof currentLinearMarkdown === 'undefined' || !currentLinearMarkdown) {
+            // Check if there's content to create
+            if (!window.currentLinearMarkdown) {
                 const toast = document.getElementById('toast');
                 toast.textContent = 'Generate an action plan first';
                 toast.classList.add('show');
@@ -391,21 +474,101 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            const button = createLinearBtn;
-            const originalText = button.textContent;
-            button.textContent = 'Creating...';
-            button.disabled = true;
+            // Pre-fill title
+            const oldOwner = document.getElementById('oldOwnerName')?.value || 'Unknown';
+            const newOwner = document.getElementById('newOwnerName')?.value || 'Unknown';
+            issueTitleInput.value = `CHOW: ${oldOwner} → ${newOwner}`;
+
+            // Load team members and workflow states
+            const settings = LinearIntegration.getSettings();
+
+            createIssueStatus.textContent = 'Loading options...';
+            createIssueStatus.className = 'linear-status loading';
 
             try {
-                // Build the title from form data
-                const oldOwner = document.getElementById('oldOwnerName')?.value || 'Unknown';
-                const newOwner = document.getElementById('newOwnerName')?.value || 'Unknown';
-                const title = `CHOW: ${oldOwner} → ${newOwner}`;
+                // Fetch members and states in parallel
+                const [members, states] = await Promise.all([
+                    LinearIntegration.fetchTeamMembers(settings.teamId),
+                    LinearIntegration.fetchWorkflowStates(settings.teamId)
+                ]);
 
-                const issue = await LinearIntegration.createIssue(title, currentLinearMarkdown);
+                // Populate assignee dropdown
+                issueAssigneeSelect.innerHTML = '<option value="">Unassigned</option>';
+                members.forEach(member => {
+                    const option = document.createElement('option');
+                    option.value = member.id;
+                    option.textContent = member.displayName || member.name;
+                    issueAssigneeSelect.appendChild(option);
+                });
 
-                button.textContent = 'Created!';
-                button.classList.add('created');
+                // Populate status dropdown (sort by type for logical order)
+                const stateOrder = ['backlog', 'unstarted', 'started', 'completed', 'canceled'];
+                states.sort((a, b) => stateOrder.indexOf(a.type) - stateOrder.indexOf(b.type));
+
+                issueStatusSelect.innerHTML = '<option value="">Default</option>';
+                states.forEach(state => {
+                    const option = document.createElement('option');
+                    option.value = state.id;
+                    option.textContent = state.name;
+                    issueStatusSelect.appendChild(option);
+                });
+
+                createIssueStatus.textContent = '';
+                createIssueStatus.className = 'linear-status';
+
+            } catch (error) {
+                console.error('Error loading options:', error);
+                createIssueStatus.textContent = 'Could not load all options';
+                createIssueStatus.className = 'linear-status error';
+            }
+
+            // Show the modal
+            createIssueModal.classList.add('show');
+        });
+    }
+
+    // Confirm create issue
+    if (confirmCreateIssueBtn) {
+        confirmCreateIssueBtn.addEventListener('click', async function() {
+            const title = issueTitleInput.value.trim();
+            if (!title) {
+                createIssueStatus.textContent = 'Please enter a title';
+                createIssueStatus.className = 'linear-status error';
+                return;
+            }
+
+            confirmCreateIssueBtn.textContent = 'Creating...';
+            confirmCreateIssueBtn.disabled = true;
+
+            try {
+                const options = {};
+
+                if (issuePrioritySelect.value) {
+                    options.priority = parseInt(issuePrioritySelect.value);
+                }
+                if (issueAssigneeSelect.value) {
+                    options.assigneeId = issueAssigneeSelect.value;
+                }
+                if (issueStatusSelect.value) {
+                    options.stateId = issueStatusSelect.value;
+                }
+
+                const issue = await LinearIntegration.createIssue(
+                    title,
+                    window.currentLinearMarkdown,
+                    options
+                );
+
+                closeCreateIssueModal();
+
+                // Update the + Linear button
+                const createLinearBtn = document.getElementById('createLinearIssue');
+                createLinearBtn.textContent = 'Created!';
+                createLinearBtn.classList.add('created');
+                setTimeout(() => {
+                    createLinearBtn.textContent = '+ Linear';
+                    createLinearBtn.classList.remove('created');
+                }, 2000);
 
                 // Show toast with link
                 const toast = document.getElementById('toast');
@@ -413,31 +576,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 toast.classList.add('show');
                 setTimeout(() => {
                     toast.classList.remove('show');
-                }, 3000);
-
-                setTimeout(() => {
-                    button.textContent = originalText;
-                    button.classList.remove('created');
-                    button.disabled = false;
-                }, 2000);
+                }, 4000);
 
             } catch (error) {
-                button.textContent = 'Error';
-                button.classList.add('error');
-                console.error('Error creating Linear issue:', error);
-
-                const toast = document.getElementById('toast');
-                toast.textContent = 'Error: ' + error.message;
-                toast.classList.add('show', 'error');
-                setTimeout(() => {
-                    toast.classList.remove('show', 'error');
-                }, 3000);
-
-                setTimeout(() => {
-                    button.textContent = originalText;
-                    button.classList.remove('error');
-                    button.disabled = false;
-                }, 2000);
+                console.error('Error creating issue:', error);
+                createIssueStatus.textContent = 'Error: ' + error.message;
+                createIssueStatus.className = 'linear-status error';
+            } finally {
+                confirmCreateIssueBtn.textContent = 'Create Issue';
+                confirmCreateIssueBtn.disabled = false;
             }
         });
     }
