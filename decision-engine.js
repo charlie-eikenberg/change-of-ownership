@@ -565,13 +565,15 @@ const DecisionEngine = {
         const timing = this.getTiming(inputs.acquisitionDate);
         const hasAR = inputs.outstandingAR === 'yes';
         const hasFBS = inputs.futureBookedShifts === 'yes';
-        const noContract = inputs.contractSigned === 'no' || inputs.contractSigned === 'unknown';
+        const noContract = inputs.contractSigned === 'no';
+        const unknownContract = inputs.contractSigned === 'unknown';
         const contractSigned = inputs.contractSigned === 'yes';
         const isAssetSale = inputs.saleType === 'asset';
         const isStockSale = inputs.saleType === 'stock';
         const isUnknownSale = inputs.saleType === 'unknown';
         const hasDistress = inputs.financialDistress === 'yes';
         const inBadDebt = inputs.badDebt === 'yes';
+        const preliminaryDone = inputs.preliminaryOutreach === 'yes';
 
         const checklist = {
             stage1: [],
@@ -581,8 +583,17 @@ const DecisionEngine = {
         };
 
         // ===================
-        // STAGE 1: Pre-Outreach
+        // STAGE 1: Pre-Outreach (Before Outreach per SOP)
         // ===================
+
+        // If preliminary outreach not done, add that task first
+        if (!preliminaryDone) {
+            checklist.stage1.push({
+                text: 'Reach out to Sales or AM/AE and confirm if the Contract has been signed',
+                completed: false,
+                label: 'sales'
+            });
+        }
 
         // Items already answered via form - mark as completed
         checklist.stage1.push({
@@ -623,6 +634,45 @@ const DecisionEngine = {
             });
         }
 
+        // PEND account conditions per SOP:
+        // Condition i: Date of acquisition is in the past, sale type is asset
+        // Condition ii: Sale type is stock but no new contract has been signed
+        if ((timing === 'past' && isAssetSale) || (isStockSale && (noContract || unknownContract))) {
+            checklist.stage1.push({
+                text: 'PEND account immediately',
+                completed: false,
+                label: 'action',
+                note: timing === 'past' && isAssetSale ? 'Past CHOW + Asset Sale' : 'Stock Sale + No Contract'
+            });
+        }
+
+        // Pend account if no new contract was signed - only if preliminary outreach not done AND contract unknown
+        if (!preliminaryDone && unknownContract) {
+            checklist.stage1.push({
+                text: 'PEND account if no new contract was signed (confirm with Sales)',
+                completed: false,
+                label: 'action'
+            });
+        }
+
+        // Tag leadership for pend decision - only if future + asset + contract signed
+        if (timing === 'future' && isAssetSale && contractSigned) {
+            checklist.stage1.push({
+                text: 'Tag Christopher Klimkowski and Antonio Ricciardi and ask if the account should be pended',
+                completed: false,
+                label: 'escalate'
+            });
+        }
+
+        // Suspend account - only if future + asset + no contract
+        if (timing === 'future' && isAssetSale && (noContract || unknownContract)) {
+            checklist.stage1.push({
+                text: 'SUSPEND account (future CHOW with asset sale and no contract)',
+                completed: false,
+                label: 'action'
+            });
+        }
+
         // ===================
         // STAGE 2: Outreach
         // ===================
@@ -660,13 +710,16 @@ const DecisionEngine = {
 
         if (noContract) {
             checklist.stage2.push({
-                text: 'Sales: Get new contract signed with new ownership',
+                text: 'Sales: Get new contract(s) signed with new ownership',
                 completed: false,
                 label: 'sales'
             });
-        } else {
+        }
+
+        // Confirm contracts were signed - if contract unknown OR preliminary outreach not done
+        if (unknownContract || !preliminaryDone) {
             checklist.stage2.push({
-                text: 'Confirm contract is in place with Sales',
+                text: 'Confirm contracts were signed by Sales',
                 completed: contractSigned,
                 label: 'sales'
             });
@@ -690,7 +743,7 @@ const DecisionEngine = {
 
         if (isAssetSale) {
             checklist.stage3.push({
-                text: 'Sales: Create new parent account for acquiring entity across all platforms',
+                text: 'Sales: Create new parent account for acquiring entity across all platforms (Salesforce, CBH App, Invoiced.com)',
                 completed: false,
                 label: 'sales'
             });
@@ -700,19 +753,11 @@ const DecisionEngine = {
                 completed: false,
                 label: 'sales'
             });
-
-            if (hasAR || hasFBS) {
-                checklist.stage3.push({
-                    text: 'Transfer pre-sale invoices/shifts to old entity account',
-                    completed: false,
-                    label: 'billing'
-                });
-            }
         }
 
         if (isStockSale) {
             checklist.stage3.push({
-                text: 'Sales: Update existing parent account info across all platforms',
+                text: 'Sales: Update existing parent account info across all platforms (Salesforce, CBH App, Invoiced.com)',
                 completed: false,
                 label: 'sales'
             });
@@ -724,10 +769,31 @@ const DecisionEngine = {
             });
         }
 
+        // All lists get these items per SOP
         checklist.stage3.push({
             text: 'Sales: Adjust charge rates as necessary',
             completed: false,
             label: 'sales'
+        });
+
+        checklist.stage3.push({
+            text: 'Sales: Ensure that all necessary documentation for opening the new account is complete and properly filed',
+            completed: false,
+            label: 'sales'
+        });
+
+        // Transfer invoices - all lists per SOP
+        checklist.stage3.push({
+            text: 'Transfer any invoices needed from the old account to the new',
+            completed: false,
+            label: 'billing'
+        });
+
+        // Transfer shifts - all lists per SOP (separate item)
+        checklist.stage3.push({
+            text: 'Transfer any shifts from the old account to the new',
+            completed: false,
+            label: 'billing'
         });
 
         if (hasAR && isAssetSale) {
@@ -753,19 +819,27 @@ const DecisionEngine = {
             });
         }
 
+        // Final escalation for re-enrollment - all lists per SOP
+        checklist.stage3.push({
+            text: 'Once stages 1-3 completed, tag Christopher Klimkowski and Antonio Ricciardi and re-enroll active accounts if financial responsibility is assumed',
+            completed: false,
+            label: 'escalate'
+        });
+
         // ===================
         // STAGE 4: Continuous
         // ===================
 
+        // Per SOP: all lists get "Continue chasing old/new entities for payments"
+        checklist.stage4.push({
+            text: 'Continue chasing old/new entities for payments',
+            completed: false,
+            label: 'billing'
+        });
+
         if (hasAR) {
             checklist.stage4.push({
-                text: 'Continue chasing responsible party for pre-CHOW invoices',
-                completed: false,
-                label: 'billing'
-            });
-
-            checklist.stage4.push({
-                text: 'Monitor for payment commitments and follow up',
+                text: 'Monitor for payment commitments and follow up on pre-CHOW invoices',
                 completed: false,
                 label: 'billing'
             });
@@ -779,22 +853,34 @@ const DecisionEngine = {
             }
         }
 
-        // Special case: no AR, no FBS
+        // Special case: no AR, no FBS - per SOP, don't generate normal checklist
+        // Instead show specific message
         if (!hasAR && !hasFBS) {
-            // Clear most items, simplify
+            // Clear all stages and show exception message
+            checklist.stage1 = [{
+                text: 'EXCEPTION CASE: No Future Booked Shifts AND No Outstanding AR',
+                completed: true,
+                note: 'Follow simplified process below',
+                label: 'action'
+            }];
             checklist.stage2 = [{
-                text: 'Coordinate with Sales on new customer onboarding (if applicable)',
+                text: 'Ping Christopher Klimkowski and Antonio Ricciardi and inform them of the ownership change',
+                completed: false,
+                label: 'escalate'
+            }];
+            checklist.stage3 = [{
+                text: 'Archive the old account immediately',
+                completed: false,
+                label: 'billing'
+            }, {
+                text: 'Inform Sales that they need to onboard the new account',
                 completed: false,
                 label: 'sales'
             }];
-            checklist.stage3 = [{
-                text: 'Archive old account',
-                completed: false,
-                label: 'billing'
-            }];
             checklist.stage4 = [{
-                text: 'No ongoing collection needed - $0 AR',
-                completed: true
+                text: 'No ongoing collection needed - treat new owner like a new customer rather than an ownership change',
+                completed: true,
+                label: 'billing'
             }];
         }
 

@@ -645,6 +645,11 @@ legend {
     color: #991b1b;
 }
 
+.task-label.action {
+    background: #fef3c7;
+    color: #92400e;
+}
+
 /* Special Alerts */
 .special-alerts {
     background: #fef2f2;

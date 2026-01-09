@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', function() {
             affectedFacilities: document.getElementById('affectedFacilities').value.trim(),
             newFacilityNames: document.getElementById('newFacilityNames').value.trim(),
             newOwnerContact: document.getElementById('newOwnerContact').value.trim(),
+            preliminaryOutreach: document.getElementById('preliminaryOutreach').value,
             acquisitionDate: document.getElementById('acquisitionDate').value,
             saleType: document.getElementById('saleType').value,
             contractSigned: document.getElementById('contractSigned').value,
@@ -252,6 +253,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('affectedFacilities').value = inputs.affectedFacilities || '';
             document.getElementById('newFacilityNames').value = inputs.newFacilityNames || '';
             document.getElementById('newOwnerContact').value = inputs.newOwnerContact || '';
+            document.getElementById('preliminaryOutreach').value = inputs.preliminaryOutreach || '';
             document.getElementById('acquisitionDate').value = inputs.acquisitionDate || '';
             document.getElementById('saleType').value = inputs.saleType || '';
             document.getElementById('contractSigned').value = inputs.contractSigned || '';
