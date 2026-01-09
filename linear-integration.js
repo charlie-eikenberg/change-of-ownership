@@ -373,69 +373,72 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize display
     updateConnectionDisplay();
 
-    // Handle Linear stage buttons
-    document.addEventListener('click', async function(e) {
-        if (e.target.classList.contains('btn-linear-stage')) {
+    // Handle single Linear issue creation button
+    const createLinearBtn = document.getElementById('createLinearIssue');
+    if (createLinearBtn) {
+        createLinearBtn.addEventListener('click', async function() {
             if (!LinearIntegration.isConnected()) {
                 modal.classList.add('show');
                 return;
             }
 
-            const stageId = e.target.dataset.stage;
-            const stageHeader = document.querySelector(`#${stageId} h3`);
-            const stageName = stageHeader ? stageHeader.textContent : stageId;
-
-            // Get the markdown for this stage
-            if (typeof stageMarkdown !== 'undefined' && stageMarkdown[stageId]) {
-                const button = e.target;
-                const originalText = button.textContent;
-                button.textContent = 'Creating...';
-                button.disabled = true;
-
-                try {
-                    // Build the title from form data
-                    const oldOwner = document.getElementById('oldOwnerName')?.value || 'Unknown';
-                    const newOwner = document.getElementById('newOwnerName')?.value || 'Unknown';
-                    const title = `CHOW: ${oldOwner} → ${newOwner} - ${stageName}`;
-
-                    const issue = await LinearIntegration.createIssue(title, stageMarkdown[stageId]);
-
-                    button.textContent = 'Created!';
-                    button.classList.add('created');
-
-                    // Show toast with link
-                    const toast = document.getElementById('toast');
-                    toast.innerHTML = `Created: <a href="${issue.url}" target="_blank">${issue.identifier}</a>`;
-                    toast.classList.add('show');
-                    setTimeout(() => {
-                        toast.classList.remove('show');
-                    }, 3000);
-
-                    setTimeout(() => {
-                        button.textContent = originalText;
-                        button.classList.remove('created');
-                        button.disabled = false;
-                    }, 2000);
-
-                } catch (error) {
-                    button.textContent = 'Error';
-                    button.classList.add('error');
-                    console.error('Error creating Linear issue:', error);
-
-                    const toast = document.getElementById('toast');
-                    toast.textContent = 'Error: ' + error.message;
-                    toast.classList.add('show', 'error');
-                    setTimeout(() => {
-                        toast.classList.remove('show', 'error');
-                    }, 3000);
-
-                    setTimeout(() => {
-                        button.textContent = originalText;
-                        button.classList.remove('error');
-                        button.disabled = false;
-                    }, 2000);
-                }
+            // Get the full markdown content
+            if (typeof currentLinearMarkdown === 'undefined' || !currentLinearMarkdown) {
+                const toast = document.getElementById('toast');
+                toast.textContent = 'Generate an action plan first';
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
+                return;
             }
-        }
-    });
+
+            const button = createLinearBtn;
+            const originalText = button.textContent;
+            button.textContent = 'Creating...';
+            button.disabled = true;
+
+            try {
+                // Build the title from form data
+                const oldOwner = document.getElementById('oldOwnerName')?.value || 'Unknown';
+                const newOwner = document.getElementById('newOwnerName')?.value || 'Unknown';
+                const title = `CHOW: ${oldOwner} → ${newOwner}`;
+
+                const issue = await LinearIntegration.createIssue(title, currentLinearMarkdown);
+
+                button.textContent = 'Created!';
+                button.classList.add('created');
+
+                // Show toast with link
+                const toast = document.getElementById('toast');
+                toast.innerHTML = `Created: <a href="${issue.url}" target="_blank">${issue.identifier}</a>`;
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('created');
+                    button.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                button.textContent = 'Error';
+                button.classList.add('error');
+                console.error('Error creating Linear issue:', error);
+
+                const toast = document.getElementById('toast');
+                toast.textContent = 'Error: ' + error.message;
+                toast.classList.add('show', 'error');
+                setTimeout(() => {
+                    toast.classList.remove('show', 'error');
+                }, 3000);
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('error');
+                    button.disabled = false;
+                }, 2000);
+            }
+        });
+    }
 });

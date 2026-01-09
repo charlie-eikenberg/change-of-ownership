@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const timingIndicator = document.getElementById('timingIndicator');
     const toast = document.getElementById('toast');
 
-    let currentLinearMarkdown = '';
+    window.currentLinearMarkdown = ''; // Store full markdown (exposed globally for Linear integration)
     window.stageMarkdown = {}; // Store markdown for each stage (exposed globally for Linear integration)
 
     // Update timing indicator when date changes
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const result = DecisionEngine.process(inputs);
 
         // Store markdown for copy
-        currentLinearMarkdown = result.linearMarkdown;
+        window.currentLinearMarkdown = result.linearMarkdown;
         window.stageMarkdown = result.stageMarkdown;
 
         // Render output
@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Copy all to clipboard
     copyAllBtn.addEventListener('click', async function() {
-        await copyToClipboard(currentLinearMarkdown);
+        await copyToClipboard(window.currentLinearMarkdown);
         showToast('Copied all to clipboard!');
     });
 

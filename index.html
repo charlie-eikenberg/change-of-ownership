@@ -175,9 +175,14 @@
             <section class="output-section" id="outputSection" style="display: none;">
                 <div class="output-header">
                     <h2>Action Plan</h2>
-                    <button class="btn-copy" id="copyAllBtn" title="Copy everything to clipboard">
-                        <span class="copy-icon">Copy All</span>
-                    </button>
+                    <div class="output-actions">
+                        <button class="btn-copy" id="copyAllBtn" title="Copy everything to clipboard">
+                            Copy All
+                        </button>
+                        <button class="btn-linear" id="createLinearIssue" title="Create Linear issue with all tasks">
+                            + Linear
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Risk Assessment -->
@@ -207,40 +212,28 @@
                     <div class="stage" id="stage1">
                         <div class="stage-header">
                             <h3>Stage 1: Pre-Outreach</h3>
-                            <div class="stage-actions">
-                                <button class="btn-copy-stage" data-stage="stage1" title="Copy this stage">Copy</button>
-                                <button class="btn-linear-stage" data-stage="stage1" title="Create Linear issue">+ Linear</button>
-                            </div>
+                            <button class="btn-copy-stage" data-stage="stage1" title="Copy this stage">Copy</button>
                         </div>
                         <ul class="checklist"></ul>
                     </div>
                     <div class="stage" id="stage2">
                         <div class="stage-header">
                             <h3>Stage 2: Outreach</h3>
-                            <div class="stage-actions">
-                                <button class="btn-copy-stage" data-stage="stage2" title="Copy this stage">Copy</button>
-                                <button class="btn-linear-stage" data-stage="stage2" title="Create Linear issue">+ Linear</button>
-                            </div>
+                            <button class="btn-copy-stage" data-stage="stage2" title="Copy this stage">Copy</button>
                         </div>
                         <ul class="checklist"></ul>
                     </div>
                     <div class="stage" id="stage3">
                         <div class="stage-header">
                             <h3>Stage 3: Post-Outreach</h3>
-                            <div class="stage-actions">
-                                <button class="btn-copy-stage" data-stage="stage3" title="Copy this stage">Copy</button>
-                                <button class="btn-linear-stage" data-stage="stage3" title="Create Linear issue">+ Linear</button>
-                            </div>
+                            <button class="btn-copy-stage" data-stage="stage3" title="Copy this stage">Copy</button>
                         </div>
                         <ul class="checklist"></ul>
                     </div>
                     <div class="stage" id="stage4">
                         <div class="stage-header">
                             <h3>Stage 4: Continuous</h3>
-                            <div class="stage-actions">
-                                <button class="btn-copy-stage" data-stage="stage4" title="Copy this stage">Copy</button>
-                                <button class="btn-linear-stage" data-stage="stage4" title="Create Linear issue">+ Linear</button>
-                            </div>
+                            <button class="btn-copy-stage" data-stage="stage4" title="Copy this stage">Copy</button>
                         </div>
                         <ul class="checklist"></ul>
                     </div>
