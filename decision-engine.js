@@ -620,6 +620,12 @@ const DecisionEngine = {
             note: inputs.saleType.toUpperCase()
         });
 
+        checklist.stage1.push({
+            text: 'Mark facility as CHOW and add CHOW date in Salesforce',
+            completed: false,
+            label: 'action'
+        });
+
         // Items to still do
         if (!inBadDebt) {
             checklist.stage1.push({
