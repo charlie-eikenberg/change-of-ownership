@@ -34,7 +34,8 @@ const DecisionEngine = {
         const hasExposure = hasAR || hasFBS; // Do we have money at stake?
 
         const contractSigned = inputs.contractSigned === 'yes';
-        const noContract = inputs.contractSigned === 'no';
+        const contractDeclined = inputs.contractSigned === 'declined';
+        const noContract = inputs.contractSigned === 'no' || inputs.contractSigned === 'pending' || contractDeclined;
         const unknownContract = inputs.contractSigned === 'unknown';
 
         const isAssetSale = inputs.saleType === 'asset';
@@ -197,6 +198,8 @@ const DecisionEngine = {
         if (inputs.outstandingAR === 'yes') parts.push('Outstanding AR');
         if (inputs.futureBookedShifts === 'yes') parts.push('Has FBS');
         if (inputs.contractSigned === 'yes') parts.push('Contract Signed');
+        else if (inputs.contractSigned === 'pending') parts.push('Contract Pending');
+        else if (inputs.contractSigned === 'declined') parts.push('Contract Declined');
         else if (inputs.contractSigned === 'no') parts.push('No Contract');
 
         return parts.join(' | ');
@@ -209,7 +212,8 @@ const DecisionEngine = {
         const timing = this.getTiming(inputs.acquisitionDate);
         const hasAR = inputs.outstandingAR === 'yes';
         const hasFBS = inputs.futureBookedShifts === 'yes';
-        const noContract = inputs.contractSigned === 'no' || inputs.contractSigned === 'unknown';
+        const noContract = inputs.contractSigned === 'no' || inputs.contractSigned === 'pending' || inputs.contractSigned === 'declined' || inputs.contractSigned === 'unknown';
+        const contractDeclined = inputs.contractSigned === 'declined';
         const isAssetSale = inputs.saleType === 'asset';
         const isStockSale = inputs.saleType === 'stock';
         const hasDistress = inputs.financialDistress === 'yes';
@@ -238,6 +242,9 @@ const DecisionEngine = {
         // Medium risk scenarios
         if (riskLevel === 'medium') {
             if (timing === 'future' && isAssetSale && noContract && hasAR) {
+                if (contractDeclined) {
+                    return 'Medium risk. CHOW is upcoming which gives time to act. New owner declined to sign a contract — focus on confirming who is responsible for pre-sale debt and preparing to wind down service at transition.';
+                }
                 return 'Medium risk. CHOW is upcoming which gives time to act. Focus on confirming who is responsible for pre-sale debt and getting a new contract signed before the transition date.';
             }
             if (isAssetSale && inputs.contractSigned === 'yes' && hasAR) {
@@ -251,6 +258,9 @@ const DecisionEngine = {
         }
 
         if (isStockSale && noContract) {
+            if (contractDeclined) {
+                return 'Stock sale where new owner declined to sign a contract. PEND account and prepare to discontinue service. New owner technically assumes debt under stock sale — coordinate with collections on outstanding balance.';
+            }
             return 'Stock sale without contract. New owner would assume debt but needs to sign contract. PEND account until contract is secured. Focus on getting Sales to close the new contract.';
         }
 
@@ -275,7 +285,8 @@ const DecisionEngine = {
         const hasFBS = inputs.futureBookedShifts === 'yes';
         const hasExposure = hasAR || hasFBS;
         const contractSigned = inputs.contractSigned === 'yes';
-        const noContract = inputs.contractSigned === 'no';
+        const contractDeclined = inputs.contractSigned === 'declined';
+        const noContract = inputs.contractSigned === 'no' || inputs.contractSigned === 'pending' || contractDeclined;
         const unknownContract = inputs.contractSigned === 'unknown';
         const isAssetSale = inputs.saleType === 'asset';
         const isStockSale = inputs.saleType === 'stock';
@@ -365,10 +376,12 @@ const DecisionEngine = {
                     text: 'Attempt contact with old owner to understand their situation and payment ability',
                     confidence: 'medium'
                 });
-                actions.push({
-                    text: 'Prioritize getting new contract signed to protect ongoing relationship',
-                    confidence: 'high'
-                });
+                if (!contractDeclined) {
+                    actions.push({
+                        text: 'Prioritize getting new contract signed to protect ongoing relationship',
+                        confidence: 'high'
+                    });
+                }
                 actions.push({
                     text: 'Consider escalating to Charlie if old owner is completely unresponsive',
                     confidence: 'medium'
@@ -415,7 +428,7 @@ const DecisionEngine = {
         if (riskLevel === 'medium') {
             // Future CHOW - we have time
             if (timing === 'future') {
-                if (!contractSigned) {
+                if (!contractSigned && !contractDeclined) {
                     actions.push({
                         text: 'Work with Sales to get new contract signed before transition date',
                         confidence: 'high'
@@ -448,18 +461,33 @@ const DecisionEngine = {
 
             // Stock sale without contract
             if (isStockSale && !contractSigned) {
-                actions.push({
-                    text: 'PEND account until new contract is signed',
-                    confidence: 'high'
-                });
-                actions.push({
-                    text: 'New owner would assume debt - focus on getting contract signed quickly',
-                    confidence: 'high'
-                });
-                actions.push({
-                    text: 'Alert Sales to prioritize this contract',
-                    confidence: 'medium'
-                });
+                if (contractDeclined) {
+                    actions.push({
+                        text: 'PEND account - new owner declined to sign a contract',
+                        confidence: 'high'
+                    });
+                    actions.push({
+                        text: 'Stock sale: new owner technically assumes outstanding debt - coordinate with collections',
+                        confidence: 'high'
+                    });
+                    actions.push({
+                        text: 'Prepare to discontinue service and archive account',
+                        confidence: 'medium'
+                    });
+                } else {
+                    actions.push({
+                        text: 'PEND account until new contract is signed',
+                        confidence: 'high'
+                    });
+                    actions.push({
+                        text: 'New owner would assume debt - focus on getting contract signed quickly',
+                        confidence: 'high'
+                    });
+                    actions.push({
+                        text: 'Alert Sales to prioritize this contract',
+                        confidence: 'medium'
+                    });
+                }
                 return actions;
             }
 
@@ -565,7 +593,8 @@ const DecisionEngine = {
         const timing = this.getTiming(inputs.acquisitionDate);
         const hasAR = inputs.outstandingAR === 'yes';
         const hasFBS = inputs.futureBookedShifts === 'yes';
-        const noContract = inputs.contractSigned === 'no';
+        const contractDeclined = inputs.contractSigned === 'declined';
+        const noContract = inputs.contractSigned === 'no' || inputs.contractSigned === 'pending' || contractDeclined;
         const unknownContract = inputs.contractSigned === 'unknown';
         const contractSigned = inputs.contractSigned === 'yes';
         const isAssetSale = inputs.saleType === 'asset';
@@ -587,7 +616,8 @@ const DecisionEngine = {
         // ===================
 
         // If preliminary outreach not done, add that task first
-        if (!preliminaryDone) {
+        // Skip when contract is declined - status is already known
+        if (!preliminaryDone && !contractDeclined) {
             checklist.stage1.push({
                 text: 'Reach out to Sales or AM/AE and confirm if the Contract has been signed',
                 completed: false,
@@ -664,7 +694,7 @@ const DecisionEngine = {
         // Tag leadership for pend decision - only if future + asset + contract signed
         if (timing === 'future' && isAssetSale && contractSigned) {
             checklist.stage1.push({
-                text: 'Tag Christopher Klimkowski and Antonio Ricciardi and ask if the account should be pended',
+                text: 'Tag Christopher Klimkowski and Sun and ask if the account should be pended',
                 completed: false,
                 label: 'escalate'
             });
@@ -714,7 +744,7 @@ const DecisionEngine = {
             });
         }
 
-        if (noContract) {
+        if (noContract && !contractDeclined) {
             checklist.stage2.push({
                 text: 'Sales: Get new contract(s) signed with new ownership',
                 completed: false,
@@ -723,7 +753,8 @@ const DecisionEngine = {
         }
 
         // Confirm contracts were signed - if contract unknown OR preliminary outreach not done
-        if (unknownContract || !preliminaryDone) {
+        // Skip when contract is declined - status is already known
+        if ((unknownContract || !preliminaryDone) && !contractDeclined) {
             checklist.stage2.push({
                 text: 'Confirm contracts were signed by Sales',
                 completed: contractSigned,
@@ -827,7 +858,7 @@ const DecisionEngine = {
 
         // Final escalation for re-enrollment - all lists per SOP
         checklist.stage3.push({
-            text: 'Once stages 1-3 completed, tag Christopher Klimkowski and Antonio Ricciardi and re-enroll active accounts if financial responsibility is assumed',
+            text: 'Once stages 1-3 completed, tag Christopher Klimkowski and Sun and re-enroll active accounts if financial responsibility is assumed',
             completed: false,
             label: 'escalate'
         });
@@ -870,7 +901,7 @@ const DecisionEngine = {
                 label: 'action'
             }];
             checklist.stage2 = [{
-                text: 'Ping Christopher Klimkowski and Antonio Ricciardi and inform them of the ownership change',
+                text: 'Ping Christopher Klimkowski and Sun and inform them of the ownership change',
                 completed: false,
                 label: 'escalate'
             }];
