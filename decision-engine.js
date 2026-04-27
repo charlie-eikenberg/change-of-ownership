@@ -10,8 +10,10 @@ const DecisionEngine = {
     getTiming(acquisitionDate) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const acqDate = new Date(acquisitionDate);
-        acqDate.setHours(0, 0, 0, 0);
+        // Parse YYYY-MM-DD as a local date — `new Date('2026-04-28')` would
+        // parse as UTC midnight, which shifts to the prior day in US timezones.
+        const [year, month, day] = acquisitionDate.split('-').map(Number);
+        const acqDate = new Date(year, month - 1, day);
         return acqDate <= today ? 'past' : 'future';
     },
 
